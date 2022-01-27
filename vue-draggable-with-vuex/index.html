@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue Draggable and Vuex</title>
+    <style>
+        :root {
+            --item-height:2.5em;
+            --border-color:rgba(128,128,128,.5);
+        }
+        
+        .sortable-list {
+            background-color: var(--border-color);
+            padding:.1px 0;
+            display:block;
+        }
+        .sortable {
+            line-height:var(--item-height);
+            margin:1px;
+            padding:0 1em;
+            background-color:white;
+            cursor: move;
+            list-style: none;
+        }
+        .sortable-ghost {
+            opacity:.2;
+        }
+        .parent {
+            padding-bottom:1em;
+        }
+    </style>
+</head>
+<body>
+    <div id="main">
+        <tree :parent-id="0"></tree>
+    </div>
+    
+    <script type="text/x-template" id="tree">
+        <draggable v-model="pages" :element="'ul'" :options="{group:{name:'pages',pull:true,put:true},animation: 150}" class="sortable-list">
+            <li v-for="(page, key) in pages" class="sortable" :class="{ parent: isParent(page) }">
+            <span>{{page.title}}</span>
+            <tree v-if="page.children.length > 0" :parent-id="page.id"></tree>
+            </li>
+        </draggable>
+    </script>
+
+
+    <script src="//cdn.test/vue/vue@2.6.14.js"></script>
+    <script src="//cdn.test/vue/vuex@3.6.2.js"></script>
+    <script src="//cdn.test/vue/Sortable@1.8.4.min.js"></script>
+    <script src="//cdn.test/vue/vuedraggable.min.js"></script>
+    <script>
+        function findDeep(items, id) {
+            if (!items) {
+                return;
+            }
+
+            for (const item of items) {
+                // Test current object
+                if (item.id === id) {
+                return item;
+                }
+
+                // Test children recursively
+                const child = findDeep(item.children, id);
+                if (child) {
+                return child;
+                }
+            }
+        }
+
+        const store = new Vuex.Store({
+            strict: true,
+            state: {
+                pages: [{
+                    'id': 1,
+                    'title': 'home',
+                    children: []
+                },
+                {
+                    'id': 2,
+                    'title': 'about',
+                    children: []
+                },
+                {
+                    'id': 3,
+                    'title': 'articles',
+                    children: [{
+                        'id': 5,
+                        'title': 'article 1',
+                        children: []
+                    },
+                    {
+                        'id': 6,
+                        'title': 'article 2',
+                        children: []
+                    },
+                    ]
+                },
+                {
+                    'id': 4,
+                    'title': 'contact',
+                    children: []
+                }
+                ]
+            },
+            getters: {
+                pages: state => {
+                // pages is list of pages, if parentId is defined this getter returns parent's children
+                return parentId => {
+                    if (!parentId)
+                        return state.pages
+                    else
+                        node = findDeep(state.pages, parentId);
+                        return node.children
+                }
+                }
+            },
+            mutations: {
+                setPages(state, {
+                value,
+                parentId
+                }) {
+                if (!parentId)
+                    state.pages = value
+                else {
+                    let node = findDeep(state.pages, parentId);
+                    node.children = value
+                }
+                },
+            }
+            })
+
+        Vue.component('tree', {
+            template: '#tree',
+            name: 'tree',
+            props: [
+                'parentId'
+            ],
+            computed: {
+                pages: {
+                    get() {
+                        return this.$store.getters.pages(this.parentId)
+                    },
+                    set(value) {
+                        this.$store.commit('setPages', {
+                            value,
+                            parentId: this.parentId
+                        })
+                    }
+                }
+            },
+            methods: {
+                isParent(page) {
+                return page.children.length > 0
+                }
+            }
+        });
+
+        new Vue({
+            el: '#main',
+            store
+        })
+
+    </script>
+</body>
+</html>
